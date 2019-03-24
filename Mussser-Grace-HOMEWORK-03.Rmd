@@ -1,0 +1,225 @@
+---
+title: "Musser-Grace-HOMEWORK-03"
+author: "Grace Musser"
+date: "3/23/2019"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(readr)
+```
+
+
+Problem 1
+
+```{r}
+z.prop.test<-function(p1, n1, p2 = NULL,
+                        n2 = NULL, p0, alternative = "two.sided",
+                        conf.level = 0.95){
+  if ((n1*p1<5) & (n1*(1-p0)<5)) {
+    warning("Using a normal distibution is not valid")
+  }
+  if (is.null(p2) | is.null(n2)){  #if p2 and n2 are null....
+    z<-(p1-p0)/sqrt(p0*(1-p0)/n1) #calculate z score for p1 and n1 (one sample)
+    z #print Z
+  } else { 
+    px<-(p1*n1+p2*n2)/(n1+n2) 
+    z<-((p1-p2-p0)/sqrt(px*(1-px)*((1/n1)+(1/n2)))) #else, calculate z score for p1, n1, p2, and n2 (2 samples)
+    z
+  }
+  if(alternative=="two.sided" | is.null(alternative) ){
+    p.upper<- 1-pnorm(abs(z), lower.tail = TRUE)
+    p.lower<- pnorm(abs(z), lower.tail = FALSE)
+    p<- p.upper+p.lower
+  }
+  if (alternative=="less"&(is.null(p2) | is.null(n2))){
+    p<-(pnorm(z, lower.tail = TRUE))
+  }
+  if (alternative=="less"&(!is.null(p2) | !is.null(n2))){
+    p<-(pnorm(z, lower.tail = FALSE))
+  }
+  if (alternative=="greater"&(!is.null(p2) | !is.null(n2))){
+    p<-(pnorm(z, lower.tail = TRUE))
+  }
+  if (alternative=="greater"&(is.null(p2) | is.null(n2))){
+    p<-(pnorm(z, lower.tail = FALSE))
+  }
+  if (is.null(p2)|is.null(n2)){
+    alpha<-conf.level #calculate the confidence interval for the one sample z test above
+    lower<-p1 + qnorm((1-alpha)/2)*sqrt(p1*(1-p1)/n1)
+    upper<-p1-qnorm((1-alpha)/2)*sqrt(p1*(1-p1)/n1)
+    confint <- c(lower, upper)
+    confint 
+  } else { #else, calculate the confidence interval for the two sample z test above
+    lower.confint<-((p2-p1)-1.96*sqrt(((p1*(1-p1))/n1)+((p2*(1-p2))/n2))) 
+    upper.confint<-((p2-p1)+1.96*sqrt(((p1*(1-p1))/n1)+((p2*(1-p2))/n2)))
+        confint<-c(lower.confint,upper.confint)  
+  }
+  output <- list(p, z, confint)
+  return(output)
+}
+
+```
+
+```{r}
+z.prop.test(p1=.02, n1=20, p0=.5) #test of one sample function input
+```
+```{r}
+z.prop.test(p1=.02, n1=20, p0=.5, p2=.05, n2=30) #test of two sample function input
+```
+```{r}
+z.prop.test(p1=.02, n1=20, p0=.5, alternative="less")  #test of alternative one sample function input
+```
+
+
+```{r}
+z.prop.test(p1=.02, n1=20, p0=.5, alternative="greater")  #test of alternative one sample function input
+```
+
+```{r}
+z.prop.test(p1=.2, n1=5, p0=0.5) #test the warning message
+```
+
+
+Problem 2
+
+```{r}
+#load the dataset 
+f <- "https://raw.githubusercontent.com/difiore/ADA-2019/master/KamilarAndCooperData.csv"
+d <- read_csv(f, col_names = TRUE) 
+head(d)
+```
+
+
+```{r}
+#create vectors for brain size, longevity and their logs
+brain_size<-d$Brain_Size_Species_Mean
+max_long<-d$MaxLongevity_m
+logb<-log(brain_size)
+logm<-log(max_long)
+```
+
+```{r}
+linear_reg<-lm(data=d,max_long~brain_size) #linear regression for brain size and logevity
+linear_reg
+```
+
+```{r}
+linear_reg2<-lm(data=d,logm~logb) #linear regression for logs of brain size and longevity
+linear_reg2
+```
+
+```{r}
+#scatterplot of non log-transformed data
+non_log <- ggplot(data=d, aes(x=brain_size, y=max_long)) + geom_point() +
+  ggtitle("Brain Size and Max Longevity") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  xlab("Brain Size") +
+  ylab("Max Longevity") +
+  geom_smooth(method="lm", formula=y~x, col="green") +
+  annotate("text", label="y=1.218*x+248.952", x=100, y=800, size=4)
+non_log
+```
+
+```{r}
+#scatterplot of log-transformed data
+log <- ggplot(data=d, aes(x=logb, y=logm)) + geom_point() +
+  ggtitle("Log Brain Size and Max Longevity") +
+  theme(plot.title=element_text(hjust=0.5)) +
+  xlab("Log Brain Size") +
+  ylab("Log Max Longevity") +
+  geom_smooth(method="lm", formula=y~x, col="green") +
+  annotate("text", label="y=0.2341*x+4.879", x=2, y=7, size=4)
+log
+```
+
+```{r}
+
+sum<-coef(summary(linear_reg))
+sum<-data.frame(sum)
+sum
+```
+
+The p value for BETA1 is less than 0.05, so the alternative hypothesis is preferred.
+
+```{r}
+#calculoate the 90% confidence intervals
+alpha <- 0.10
+confint <- confint(linear_reg, level=1-alpha)  
+confint
+```
+
+```{r}
+lowerCI<-sum$Estimate-qt(1-alpha/2, df=126)*sum$Std..Error
+upperCI<-sum$Estimate+qt(1-alpha/2, df=126)*sum$Std..Error
+sumconf<-cbind(lowerCI,upperCI)
+sumconf
+```
+
+
+```{r}
+sumconf<- data.frame(sumConf)
+```
+```{r}
+#plot the raw data with confidence intervals
+plot<- ggplot(data=d, aes(x= brain_size, y = max_long))+
+  geom_point()+
+  ggtitle("Brainsize and Max Longevity")+theme(plot.title = element_text(hjust = 0.5))+
+  xlab("Brainsize")+
+  ylab("Max Longevity")+
+  geom_smooth(method = "lm", formula = y~x, color="red")+
+  geom_text(aes(x=brain_size, y=max_long, label=" "))+
+  geom_point(alpha=0.5)+
+  geom_abline(slope=1.035571, intercept=230.540738, col="pink")+
+  geom_abline(slope=1.40041, intercept = 267.36379, col="purple")+
+  annotate("text", label="Lower CI in pink", x=200, y=900)+
+  annotate("text", label="Upper CI in purple", x=200, y=800)
+plot
+```
+
+```{r}
+sum<-coef(summary(linear_reg2))
+sum<-data.frame(sum)
+sum
+```
+
+```{r}
+#calculoate the 90% confidence intervals
+alpha <- 0.10
+confint <- confint(linear_reg2, level=1-alpha)  
+confint
+```
+
+```{r}
+#plot the log transformed data with confidence intervals
+plot2<- ggplot(data=d, aes(x=logb, y=logm))+
+  geom_point()+
+  ggtitle("Log Brainsize and Max Longevity")+theme(plot.title = element_text(hjust = 0.5))+
+  xlab("Log Brainsize")+
+  ylab("Log Max Longevity")+
+  geom_smooth(method = "lm", formula = y~x, color="red")+
+  geom_text(aes(x=logb, y=logm, label=" "))+
+  geom_point(alpha=0.5)+
+  geom_abline(slope=0.2046396, intercept=4.7644934, col="pink")+
+  geom_abline(slope=0.2636595, intercept = 4.9934084, col="purple")+
+  annotate("text", label="LowerCI in pink", x=1.5, y=7)+
+  annotate("text", label="UpperCI in purple", x=1.5, y=7)
+plot2
+```
+
+```{r}
+#Point estimate and 90% confidence interval for the longevity of a species whose brain weight is 800 gm
+beta1<- sum$Estimate[1]
+beta1x<- sum$Estimate[2]
+L<- beta1x*log(800)+beta1
+L
+
+conf <- predict(linear_reg2, d2=data.frame(logb=log(800)), interval="prediction", level=0.90)
+conf
+
+```
+Based on the value of the explanatory variable, I may not fully trust the model to to predict observations accurately as the value is an outlier (much larger than the other observed values.
+
+The log transformed model appears to be better as the points are not largely clustered in one area of the plot. This makes it easier to view and interpret the data.
